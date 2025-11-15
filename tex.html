@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nettoyeur de lignes — Supprime doublons, .gov, bounce@/return@, export CSV</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+  .footer {
+    text-align:center;
+    padding:15px;
+    color:#444;
+    font-size:14px;
+}
+
+.heart {
+    display:inline-block;
+    animation:pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform:scale(1); }
+    50% { transform:scale(1.3); }
+    100% { transform:scale(1); }
+}
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#06b6d4; --accent-2:#1dd3b0;
+      --muted:#94a3b8; --glass:rgba(255,255,255,0.03); --success:#10b981;
+      --danger:#f87171;
+    }
+    [data-theme="light"]{
+      --bg:linear-gradient(180deg,#f7fafc,#eef2f7);
+      --card:#ffffff;
+      --accent:#0ea5a4;
+      --accent-2:#06b6d4;
+      --muted:#475569;
+      --glass:rgba(2,6,23,0.03);
+      color-scheme: light;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;color:#e6eef6;background:linear-gradient(180deg,#071028 0%, #071a2a 100%);}
+    [data-theme="light"] html, [data-theme="light"] body{color:#0b1220;background:var(--bg);}
+    .wrap{max-width:1100px;margin:28px auto;padding:22px;background:var(--card);border-radius:14px;box-shadow:0 8px 40px rgba(3,7,18,0.6);border:1px solid rgba(255,255,255,0.02)}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:6px 0 18px;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
+    label{display:block;font-size:13px;margin-bottom:6px}
+    textarea{width:100%;height:320px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;resize:vertical;font-family:monospace;font-size:13px;outline:none}
+    .controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    button{background:var(--accent);border:none;color:#052027;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700;transition:transform .12s ease,opacity .12s ease;box-shadow:0 6px 18px rgba(6,182,212,0.12)}
+    button:active{transform:translateY(1px)}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600;box-shadow:none}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .toggles{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+    .toggle-row{display:flex;gap:8px;align-items:center}
+    .switch{appearance:none;width:44px;height:26px;border-radius:999px;background:rgba(255,255,255,0.08);position:relative;cursor:pointer;outline:none;border:1px solid rgba(0,0,0,0.08)}
+    .switch:checked{background:linear-gradient(90deg,var(--accent),var(--accent-2));}
+    .switch::after{content:'';position:absolute;width:18px;height:18px;left:4px;top:3px;border-radius:50%;background:#fff;transition:left .12s ease}
+    .switch:checked::after{left:22px}
+    .stat-list{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+    .stat{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);font-size:13px}
+    .result{margin-top:10px}
+    pre{white-space:pre-wrap;word-break:break-word;background:transparent;border:none;padding:0;margin:0;font-family:monospace;font-size:13px}
+    .small{font-size:12px;color:var(--muted)}
+    .footer{margin-top:14px;color:var(--muted);font-size:12px}
+
+    .progress{height:8px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden;margin-top:8px}
+    .progress > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .18s linear}
+
+    details summary{cursor:pointer;font-size:13px;color:var(--muted);outline:none}
+    .removed-item{padding:8px;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:6px;font-size:13px}
+    .filter-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .input, input[type="text"], select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;font-size:13px}
+    .tiny{font-size:12px;padding:6px 8px;border-radius:8px}
+    .chip{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-size:12px;color:var(--muted)}
+    .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    @media (max-width:980px){.grid{grid-template-columns:1fr;}.wrap{margin:12px}}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="root">
+    <header>
+      <div>
+        <h1>Nettoyeur de lignes</h1>
+        <p class="lead">Supprime doublons, lignes contenant <code>.gov</code>, enlève <code>bounce@</code> et <code>return@</code>. Tout local, sans serveur.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label class="small" for="themeToggle" style="margin-right:6px">Thème</label>
+        <select id="themeToggle" class="input tiny" aria-label="Sélection du thème">
+          <option value="dark">Sombre</option>
+          <option value="light">Clair</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="grid" style="margin-top:12px">
+      <div>
+        <label for="input">Entrée — collez vos données (une ligne = une entrée)</label>
+        <textarea id="input" placeholder="Collez ou tapez des lignes ici..." aria-label="Zone d'entrée"></textarea>
+
+        <div class="controls">
+          <button id="process" title="Nettoyer (Ctrl/⌘ + Enter)">Nettoyer</button>
+          <button id="clear" class="secondary">Effacer</button>
+          <button id="copy" class="secondary">Copier résultat</button>
+          <button id="download" class="secondary">Télécharger .txt</button>
+          <button id="downloadCsv" class="secondary">Télécharger .csv</button>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <div class="chip">Raccourci: Ctrl/⌘ + Enter</div>
+          <div class="chip" id="inputCount">Lignes entrée: 0</div>
+        </div>
+
+        <div class="footer">Traitement local — aucune donnée n’est envoyée. Utilise le filtrage regex si besoin.</div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="toggles">
+            <div class="toggle-row"><input id="toggle-gov" class="switch" type="checkbox" checked aria-label="Supprimer les lignes contenant .gov"><label for="toggle-gov" class="small" style="margin-left:8px">Supprimer les lignes contenant <code>.gov</code></label></div>
+            <div class="toggle-row"><input id="toggle-words" class="switch" type="checkbox" checked aria-label="Supprimer occurrences bounce@/return@"><label for="toggle-words" class="small" style="margin-left:8px">Retirer <code>bounce@</code> / <code>return@</code></label></div>
+            <div class="toggle-row"><input id="toggle-dups" class="switch" type="checkbox" checked aria-label="Supprimer doublons"><label for="toggle-dups" class="small" style="margin-left:8px">Supprimer les doublons (insensible à la casse)</label></div>
+            <div class="toggle-row"><input id="toggle-empty" class="switch" type="checkbox" checked aria-label="Supprimer lignes vides"><label for="toggle-empty" class="small" style="margin-left:8px">Supprimer les lignes vides</label></div>
+          </div>
+
+          <div class="filter-row">
+            <input id="keepFilter" type="text" class="input" placeholder="Garder uniquement les lignes contenant..." aria-label="Garder uniquement" />
+            <select id="keepMode" class="input tiny" title="Mode de recherche">
+              <option value="text">Texte (insensible à la casse)</option>
+              <option value="regex">Regex</option>
+            </select>
+            <button id="clearFilter" class="secondary tiny">Effacer filtre</button>
+          </div>
+
+          <div class="progress" aria-hidden="true" title="Progression traitement" style="margin-top:10px">
+            <i id="progressBar"></i>
+          </div>
+
+          <div class="stat-list" style="margin-top:12px">
+            <div class="stat"><div>Total lignes d'entrée</div><div id="total">0</div></div>
+            <div class="stat"><div>Lignes vides supprimées</div><div id="emptyRemoved">0</div></div>
+            <div class="stat"><div>Doublons supprimés</div><div id="duplicatesRemoved">0</div></div>
+            <div class="stat"><div>Lignes contenant <code>.gov</code> supprimées</div><div id="govRemoved">0</div></div>
+            <div class="stat"><div>Occurrences enlevées (<code>bounce@/return@</code>)</div><div id="wordsRemoved">0</div></div>
+            <div class="stat"><div>Total lignes finales</div><div id="finalCount">0</div></div>
+          </div>
+
+          <div class="result">
+            <label for="output">Résultat</label>
+            <pre id="output" class="panel" style="min-height:140px;overflow:auto"></pre>
+          </div>
+
+          <details style="margin-top:10px;color:var(--muted)"><summary>Voir lignes supprimées (catégories)</summary>
+            <div id="removedList" style="margin-top:8px;font-size:13px;max-height:240px;overflow:auto"></div>
+          </details>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="footer">
+    © 2025 — Made with <span class="heart">❤</span> by <strong>ilias optisent</strong>. All Rights Reserved.
+</footer>
+
+
+  <script>
+    // --- Elements ---
+    const root = document.getElementById('root');
+    const inputEl = document.getElementById('input');
+    const outEl = document.getElementById('output');
+    const processBtn = document.getElementById('process');
+    const clearBtn = document.getElementById('clear');
+    const copyBtn = document.getElementById('copy');
+    const downloadBtn = document.getElementById('download');
+    const downloadCsvBtn = document.getElementById('downloadCsv');
+
+    const totalEl = document.getElementById('total');
+    const emptyRemovedEl = document.getElementById('emptyRemoved');
+    const duplicatesRemovedEl = document.getElementById('duplicatesRemoved');
+    const govRemovedEl = document.getElementById('govRemoved');
+    const wordsRemovedEl = document.getElementById('wordsRemoved');
+    const finalCountEl = document.getElementById('finalCount');
+    const removedListEl = document.getElementById('removedList');
+    const progressBar = document.getElementById('progressBar');
+    const inputCountChip = document.getElementById('inputCount');
+
+    // toggles & filters
+    const toggleGov = document.getElementById('toggle-gov');
+    const toggleWords = document.getElementById('toggle-words');
+    const toggleDups = document.getElementById('toggle-dups');
+    const toggleEmpty = document.getElementById('toggle-empty');
+    const keepFilter = document.getElementById('keepFilter');
+    const keepMode = document.getElementById('keepMode');
+    const clearFilterBtn = document.getElementById('clearFilter');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // theme init
+    function applyTheme(name){
+      if(name === 'light') document.documentElement.setAttribute('data-theme','light');
+      else document.documentElement.removeAttribute('data-theme');
+    }
+    themeToggle.addEventListener('change',(e)=>applyTheme(e.target.value));
+    applyTheme(themeToggle.value);
+
+    // small helpers
+    function escapeHtml(s){
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function downloadBlob(filename, text){
+      const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // chunked processing to avoid blocking UI for very large inputs
+    async function cleanLinesChunked(text, options){
+      const rawLines = text.replace(/\r/g,'').split('\n');
+      const totals = { total: rawLines.length, emptyRemoved:0, duplicatesRemoved:0, govRemoved:0, wordsRemoved:0, finalCount:0 };
+
+      const seen = new Set();
+      const result = [];
+      const removed = [];
+
+      const CHUNK = 1200; // lines per tick, adjust if needed
+      let processed = 0;
+
+      for(let i=0;i<rawLines.length;i++){
+        let original = rawLines[i];
+        let l = original.trim();
+
+        // keepFilter check (if set)
+        if (keepFilter.value.trim() !== ''){
+          const q = keepFilter.value;
+          let keep = true;
+          if (keepMode.value === 'regex') {
+            try {
+              const re = new RegExp(q);
+              keep = re.test(l);
+            } catch(e) {
+              // invalid regex -> default to text test
+              keep = l.toLowerCase().includes(q.toLowerCase());
+            }
+          } else {
+            keep = l.toLowerCase().includes(q.toLowerCase());
+          }
+          if (!keep){
+            removed.push({type:'filtered_out',value:original});
+            processed++; totals.finalCount = result.length;
+            if ((i % CHUNK) === 0) updateProgress(processed, rawLines.length);
+            continue;
+          }
+        }
+
+        if (l === ''){
+          if (options.removeEmpty){
+            totals.emptyRemoved++; removed.push({type:'empty',value:original});
+            processed++;
+            if ((i % CHUNK) === 0) updateProgress(i+1, rawLines.length);
+            continue;
+          } else {
+            // keep empty lines as-is
+            result.push('');
+            processed++;
+            if ((i % CHUNK) === 0) updateProgress(i+1, rawLines.length);
+            continue;
+          }
+        }
+
+        if (options.removeGov && /\.gov/i.test(l)){
+          totals.govRemoved++; removed.push({type:'.gov',value:original});
+          processed++;
+          if ((i % CHUNK) === 0) updateProgress(i+1, rawLines.length);
+          continue;
+        }
+
+        // Remove occurrences of bounce@ and return@ (case-insensitive)
+        if (options.removeWords){
+          const before = l;
+          const replaced = l.replace(/bounce@/gi, '').replace(/return@/gi, '');
+          const removedOcc = ((before.match(/bounce@/gi)||[]).length + (before.match(/return@/gi)||[]).length);
+          if (removedOcc > 0){
+            totals.wordsRemoved += removedOcc;
+            l = replaced.trim();
+            if (l === ''){
+              // line became empty after removing words
+              if (options.removeEmpty){
+                totals.emptyRemoved++; removed.push({type:'removedWordsNowEmpty',value:original});
+                processed++;
+                if ((i % CHUNK) === 0) updateProgress(i+1, rawLines.length);
+                continue;
+              } else {
+                l = '';
+              }
+            }
+          }
+        }
+
+        // Deduplicate — treat duplicates case-insensitively after trimming
+        const key = l.toLowerCase();
+        if (options.removeDuplicates){
+          if (seen.has(key)){
+            totals.duplicatesRemoved++; removed.push({type:'duplicate',value:original});
+            processed++;
+            if ((i % CHUNK) === 0) updateProgress(i+1, rawLines.length);
+            continue;
+          }
+          seen.add(key);
+        }
+
+        result.push(l);
+        processed++;
+        if ((i % CHUNK) === 0) await tick(() => updateProgress(i+1, rawLines.length));
+      }
+
+      totals.finalCount = result.length;
+      return { totals, result, removed };
+    }
+
+    function tick(fn){ return new Promise(resolve => { fn && fn(); setTimeout(resolve, 0); }); }
+
+    function updateProgress(done, total){
+      const pct = total === 0 ? 0 : Math.round((done/total)*100);
+      progressBar.style.width = pct + '%';
+      progressBar.setAttribute('aria-valuenow', pct);
+    }
+
+    // Render stats + result
+    function renderStats(res){
+      totalEl.textContent = res.totals.total;
+      emptyRemovedEl.textContent = res.totals.emptyRemoved;
+      duplicatesRemovedEl.textContent = res.totals.duplicatesRemoved;
+      govRemovedEl.textContent = res.totals.govRemoved;
+      wordsRemovedEl.textContent = res.totals.wordsRemoved;
+      finalCountEl.textContent = res.totals.finalCount;
+      outEl.textContent = res.result.join('\n');
+
+      removedListEl.innerHTML = '';
+      if (res.removed.length === 0) removedListEl.textContent = 'Aucune ligne supprimée.';
+      else {
+        // group by type for readability
+        const groups = res.removed.reduce((acc,r)=>{
+          (acc[r.type] = acc[r.type] || []).push(r.value);
+          return acc;
+        }, {});
+        Object.keys(groups).forEach(type=>{
+          const title = document.createElement('div');
+          title.style.marginTop = '8px';
+          title.style.marginBottom = '6px';
+          title.innerHTML = `<strong style="color:var(--accent)">${escapeHtml(type)} — ${groups[type].length} ligne(s)</strong>`;
+          removedListEl.appendChild(title);
+          groups[type].slice(0,200).forEach(val=>{
+            const div = document.createElement('div');
+            div.className = 'removed-item';
+            div.innerHTML = `<code style="font-family:monospace">${escapeHtml(val)}</code>`;
+            removedListEl.appendChild(div);
+          });
+          if (groups[type].length > 200){
+            const more = document.createElement('div');
+            more.className = 'small';
+            more.textContent = `... affichage limité à 200 entrées par catégorie (total ${groups[type].length})`;
+            removedListEl.appendChild(more);
+          }
+        });
+      }
+    }
+
+    // main process
+    async function runProcess(){
+      const text = inputEl.value || '';
+      inputCountChip.textContent = 'Lignes entrée: ' + (text.replace(/\r/g,'').split('\n').length);
+      // disable UI while processing
+      toggleUi(true);
+      progressBar.style.width = '2%';
+
+      const options = {
+        removeGov: toggleGov.checked,
+        removeWords: toggleWords.checked,
+        removeDuplicates: toggleDups.checked,
+        removeEmpty: toggleEmpty.checked
+      };
+
+      try {
+        const res = await cleanLinesChunked(text, options);
+        renderStats(res);
+      } catch (e){
+        console.error(e);
+        alert('Erreur pendant le traitement : ' + (e && e.message ? e.message : e));
+      } finally {
+        updateProgress(1,1); // set 100
+        setTimeout(()=>{ progressBar.style.width = '0%'; }, 600);
+        toggleUi(false);
+      }
+    }
+
+    function toggleUi(disabled){
+      [processBtn, clearBtn, copyBtn, downloadBtn, downloadCsvBtn, clearFilterBtn].forEach(el=>{
+        el.disabled = disabled;
+        el.style.opacity = disabled ? 0.6 : 1;
+      });
+    }
+
+    // events
+    processBtn.addEventListener('click', runProcess);
+    clearBtn.addEventListener('click', ()=>{
+      inputEl.value = '';
+      outEl.textContent = '';
+      totalEl.textContent = 0;
+      emptyRemovedEl.textContent = 0;
+      duplicatesRemovedEl.textContent = 0;
+      govRemovedEl.textContent = 0;
+      wordsRemovedEl.textContent = 0;
+      finalCountEl.textContent = 0;
+      removedListEl.innerHTML = '';
+      inputCountChip.textContent = 'Lignes entrée: 0';
+    });
+
+    copyBtn.addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(outEl.textContent || '');
+        const prev = copyBtn.textContent;
+        copyBtn.textContent = 'Copié ✓';
+        setTimeout(()=>copyBtn.textContent = prev, 1200);
+      }catch(e){
+        alert('Impossible de copier — utilisez Ctrl+C');
+      }
+    });
+
+    downloadBtn.addEventListener('click', ()=>{
+      const data = outEl.textContent || '';
+      downloadBlob('resultat-nettoye.txt', data);
+      const prev = downloadBtn.textContent;
+      downloadBtn.textContent = 'Téléchargé ✓';
+      setTimeout(()=>downloadBtn.textContent = prev, 1200);
+    });
+
+    downloadCsvBtn.addEventListener('click', ()=>{
+      const lines = (outEl.textContent || '').split('\n');
+      // Escape quotes for CSV
+      const csv = lines.map(l => {
+        // keep as single column CSV
+        return '"' + (l.replace(/"/g,'""')) + '"';
+      }).join('\n');
+      downloadBlob('resultat-nettoye.csv', csv);
+      const prev = downloadCsvBtn.textContent;
+      downloadCsvBtn.textContent = 'Téléchargé ✓';
+      setTimeout(()=>downloadCsvBtn.textContent = prev, 1200);
+    });
+
+    // live input count
+    inputEl.addEventListener('input', ()=>{
+      inputCountChip.textContent = 'Lignes entrée: ' + (inputEl.value.replace(/\r/g,'').split('\n').length);
+    });
+
+    // Ctrl/Cmd + Enter to process
+    inputEl.addEventListener('keydown', (e)=>{
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+        processBtn.click();
+      }
+    });
+
+    // clear filter button
+    clearFilterBtn.addEventListener('click', ()=>{
+      keepFilter.value = '';
+      keepMode.value = 'text';
+    });
+
+    // init small sample placeholder
+    inputEl.value = `Saisissez ou collez vos lignes ici.
+example@domain.com
+bounce@spam.example.com
+return@mailer.example.com
+user@gov.example
+HELLO
+hello`;
+
+    // initial input count
+    inputCountChip.textContent = 'Lignes entrée: ' + (inputEl.value.replace(/\r/g,'').split('\n').length);
+  </script>
+</body>
+</html>
